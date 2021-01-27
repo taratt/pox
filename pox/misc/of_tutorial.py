@@ -23,9 +23,8 @@ It's roughly similar to the one Brandon Heller did for NOX.
 
 from pox.core import core
 import pox.openflow.libopenflow_01 as of
-
+from pox.lib.addresses import EthAddr
 log = core.getLogger()
-
 
 
 class Tutorial (object):
@@ -91,7 +90,7 @@ class Tutorial (object):
 
     # Learn the port for the source MAC
     self.mac_to_port ... <add or update entry>
-
+    
     if the port associated with the destination MAC of the packet is known:
       # Send packet out the associated port
       self.resend_packet(packet_in, ...)
@@ -119,7 +118,25 @@ class Tutorial (object):
 
     """ # DELETE THIS LINE TO START WORKING ON THIS #
 
-
+    source = packet.src
+    destination = packet.dst
+    inputPort = packet_in.in_port
+    self.mac_to_port[source] = inputPort
+    if destination in self.mac_to_port:
+      #self.resend_packet(packet_in,self.mac_to_port[destination])
+      log.debug("Installing flow!")
+      fm = of.ofp_flow_mod()
+      fm.match.dl_dst = destination
+      fm.idle_timeout = 300
+      fm.actions.append(of.ofp_action_output(port=self.mac_to_port[destination]))
+      self.connection.send(fm)
+      fmReverse =of.ofp_flow_mod()
+      fmReverse.match.dl_dst = source
+      fmReverse.idle_timeout = 300
+      fmReverse.actions.append(of.ofp_action_output(port=self.mac_to_port[source]))
+      self.connection.send(fmReverse)
+    else:
+      self.resend_packet(packet_in, of.OFPP_ALL)
   def _handle_PacketIn (self, event):
     """
     Handles packet in messages from the switch.
@@ -134,8 +151,8 @@ class Tutorial (object):
 
     # Comment out the following line and uncomment the one after
     # when starting the exercise.
-    self.act_like_hub(packet, packet_in)
-    #self.act_like_switch(packet, packet_in)
+    #self.act_like_hub(packet, packet_in)
+    self.act_like_switch(packet, packet_in)
 
 
 
